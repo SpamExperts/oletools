@@ -315,11 +315,7 @@ from oletools import oleform
 from oletools import rtfobj
 from oletools import crypto
 from oletools.common import codepages
-
-# monkeypatch email to fix issue #32:
-# allow header lines without ":"
-import email.feedparser
-email.feedparser.headerRE = re.compile(r'^(From |[\041-\071\073-\176]{1,}:?|[\t ])')
+from oletools.common import email_parser
 
 # === PYTHON 2+3 SUPPORT ======================================================
 
@@ -2832,7 +2828,7 @@ class VBA_Parser(object):
                 stripped_data = stripped_data[content_offset:]
             # TODO: quick and dirty fix: insert a standard line with MIME-Version header?
             if PYTHON2:
-                mhtml = email.message_from_string(stripped_data)
+                mhtml = email_parser.message_from_string(stripped_data)
             else:
                 # on Python 3, need to use message_from_bytes instead:
                 mhtml = email.message_from_bytes(stripped_data)
