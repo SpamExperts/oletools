@@ -34,6 +34,8 @@ potentially encrypted files::
         decrypted_file = None
         try:
             decrypted_file = crypto.decrypt(input_file, passwords)
+            if decrypted_file is None:
+                raise crypto.WrongEncryptionPassword(input_file)
             # might still be encrypted, so call this again recursively
             result = script_main_function(decrypted_file, passwords,
                                           crypto_nesting+1, args)
@@ -90,8 +92,9 @@ http://www.decalage.info/python/oletools
 # CHANGELOG:
 # 2019-02-14 v0.01 CH: - first version with encryption check from oleid
 # 2019-04-01 v0.54 PL: - fixed bug in is_encrypted_ole
+# 2019-05-23       PL: - added DEFAULT_PASSWORDS list
 
-__version__ = '0.54'
+__version__ = '0.55'
 
 import sys
 import struct
@@ -216,7 +219,8 @@ def is_encrypted(some_file):
             return msoffcrypto.OfficeFile(file_handle).is_encrypted()
 
         except Exception as exc:
-            log.warning('msoffcrypto failed to interpret file {} or determine '
+            # TODO: this triggers unnecessary warnings for non OLE files
+            log.info('msoffcrypto failed to interpret file {} or determine '
                         'whether it is encrypted: {}'
                         .format(file_handle.name, exc))
 
@@ -236,9 +240,11 @@ def is_encrypted(some_file):
         if zipfile.is_zipfile(some_file):
             return _is_encrypted_zip(some_file)
         # otherwise assume it is the name of an ole file
-        return _is_encrypted_ole(OleFileIO(some_file))
+        with OleFileIO(some_file) as ole:
+            return _is_encrypted_ole(ole)
     except Exception as exc:
-        log.warning('Failed to check {} for encryption ({}); assume it is not '
+        # TODO: this triggers unnecessary warnings for non OLE files
+        log.info('Failed to check {} for encryption ({}); assume it is not '
                     'encrypted.'.format(some_file, exc))
 
     return False
@@ -307,6 +313,9 @@ def _is_encrypted_ole(ole):
 #: using this password
 WRITE_PROTECT_ENCRYPTION_PASSWORD = 'VelvetSweatshop'
 
+#: list of common passwords to be tried by default, used by malware
+DEFAULT_PASSWORDS = [WRITE_PROTECT_ENCRYPTION_PASSWORD, '123', '1234', '12345', '123456', '4321']
+
 
 def _check_msoffcrypto():
     """Raise a :py:class:`CryptoLibNotImported` if msoffcrypto not imported."""
@@ -336,7 +345,7 @@ def decrypt(filename, passwords=None, **temp_file_args):
                            `dirname` or `prefix`. `suffix` will default to
                            suffix of input `filename`, `prefix` defaults to
                            `oletools-decrypt-`; `text` will be ignored
-    :returns: name of the decrypted temporary file.
+    :returns: name of the decrypted temporary file (type str) or `None`
     :raises: :py:class:`ImportError` if :py:mod:`msoffcrypto-tools` not found
     :raises: :py:class:`ValueError` if the given file is not encrypted
     """
@@ -346,7 +355,7 @@ def decrypt(filename, passwords=None, **temp_file_args):
     if isinstance(passwords, str):
         passwords = (passwords, )
     elif not passwords:
-        passwords = (WRITE_PROTECT_ENCRYPTION_PASSWORD, )
+        passwords = DEFAULT_PASSWORDS
 
     # check temp file args
     if 'prefix' not in temp_file_args:

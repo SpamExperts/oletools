@@ -14,7 +14,7 @@ http://www.decalage.info/python/oletools
 
 # === LICENSE =================================================================
 
-# oleobj is copyright (c) 2015-2019 Philippe Lagadec (http://www.decalage.info)
+# oleobj is copyright (c) 2015-2020 Philippe Lagadec (http://www.decalage.info)
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -59,20 +59,18 @@ import olefile
 # In that case, relative imports are NOT usable.
 # And to enable Python 2+3 compatibility, we need to use absolute imports,
 # so we add the oletools parent folder to sys.path (absolute+normalized path):
-try:
-    from oletools.thirdparty import xglob
-except ImportError:
-    import os.path
-    PARENT_DIR = os.path.normpath(os.path.dirname(os.path.dirname(
-        os.path.abspath(__file__))))
-    if PARENT_DIR not in sys.path:
-        sys.path.insert(0, PARENT_DIR)
-    del PARENT_DIR
-    from oletools.thirdparty import xglob
+_thismodule_dir = os.path.normpath(os.path.abspath(os.path.dirname(__file__)))
+# print('_thismodule_dir = %r' % _thismodule_dir)
+_parent_dir = os.path.normpath(os.path.join(_thismodule_dir, '..'))
+# print('_parent_dir = %r' % _thirdparty_dir)
+if _parent_dir not in sys.path:
+    sys.path.insert(0, _parent_dir)
 
+from oletools.thirdparty import xglob
 from oletools.ppt_record_parser import (is_ppt, PptFile,
                                         PptRecordExOleVbaActiveXAtom)
 from oletools.ooxml import XmlParser
+from oletools.common.io_encoding import ensure_stdout_handles_unicode
 
 # -----------------------------------------------------------------------------
 # CHANGELOG:
@@ -88,8 +86,9 @@ from oletools.ooxml import XmlParser
 # 2018-03-27       PL: - fixed issue #274 in read_length_prefixed_string
 # 2018-09-11 v0.54 PL: - olefile is now a dependency
 # 2018-10-30       SA: - added detection of external links (PR #317)
+# 2020-03-03 v0.56 PL: - fixed bug #541, "Ole10Native" is case-insensitive
 
-__version__ = '0.54'
+__version__ = '0.56dev2'
 
 # -----------------------------------------------------------------------------
 # TODO:
@@ -526,29 +525,35 @@ def find_ole_in_ppt(filename):
     can contain the actual embedded file we are looking for (caller will check
     for these).
     """
-    for stream in PptFile(filename).iter_streams():
-        for record_idx, record in enumerate(stream.iter_records()):
-            if isinstance(record, PptRecordExOleVbaActiveXAtom):
-                ole = None
-                try:
-                    data_start = next(record.iter_uncompressed())
-                    if data_start[:len(olefile.MAGIC)] != olefile.MAGIC:
-                        continue   # could be an ActiveX control or VBA Storage
+    ppt_file = None
+    try:
+        ppt_file = PptFile(filename)
+        for stream in ppt_file.iter_streams():
+            for record_idx, record in enumerate(stream.iter_records()):
+                if isinstance(record, PptRecordExOleVbaActiveXAtom):
+                    ole = None
+                    try:
+                        data_start = next(record.iter_uncompressed())
+                        if data_start[:len(olefile.MAGIC)] != olefile.MAGIC:
+                            continue   # could be ActiveX control / VBA Storage
 
-                    # otherwise, this should be an OLE object
-                    log.debug('Found record with embedded ole object in ppt '
-                              '(stream "{0}", record no {1})'
-                              .format(stream.name, record_idx))
-                    ole = record.get_data_as_olefile()
-                    yield ole
-                except IOError:
-                    log.warning('Error reading data from {0} stream or '
-                                'interpreting it as OLE object'
-                                .format(stream.name))
-                    log.debug('', exc_info=True)
-                finally:
-                    if ole is not None:
-                        ole.close()
+                        # otherwise, this should be an OLE object
+                        log.debug('Found record with embedded ole object in '
+                                  'ppt (stream "{0}", record no {1})'
+                                  .format(stream.name, record_idx))
+                        ole = record.get_data_as_olefile()
+                        yield ole
+                    except IOError:
+                        log.warning('Error reading data from {0} stream or '
+                                    'interpreting it as OLE object'
+                                    .format(stream.name))
+                        log.debug('', exc_info=True)
+                    finally:
+                        if ole is not None:
+                            ole.close()
+    finally:
+        if ppt_file is not None:
+            ppt_file.close()
 
 
 class FakeFile(io.RawIOBase):
@@ -767,7 +772,7 @@ def process_file(filename, data, output_dir=None):
         for path_parts in ole.listdir():
             stream_path = '/'.join(path_parts)
             log.debug('Checking stream %r', stream_path)
-            if path_parts[-1] == '\x01Ole10Native':
+            if path_parts[-1].lower() == '\x01ole10native':
                 stream = None
                 try:
                     stream = ole.openstream(path_parts)
@@ -842,6 +847,7 @@ def main(cmd_line_args=None):
     provide other arguments.
     """
     # print banner with version
+    ensure_stdout_handles_unicode()
     print('oleobj %s - http://decalage.info/oletools' % __version__)
     print('THIS IS WORK IN PROGRESS - Check updates regularly!')
     print('Please report any issue at '
