@@ -1,5 +1,6 @@
 import re
 import email.feedparser
+import email.parser
 from email import errors
 
 NLCRE = re.compile('\r\n|\r|\n')
