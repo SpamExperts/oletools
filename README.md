@@ -26,6 +26,25 @@ Note: python-oletools is not related to OLETools published by BeCubed Software.
 News
 ----
 
+- **2019-12-03 v0.55**:
+    - olevba:
+        - added support for SLK files and XLM macro extraction from SLK
+        - VBA Stomping detection
+        - integrated pcodedmp to extract and disassemble P-code
+        - detection of suspicious keywords and IOCs in P-code
+        - new option --pcode to display P-code disassembly
+        - improved detection of auto execution triggers
+    - rtfobj: added URL carver for CVE-2017-0199
+    - better handling of unicode for systems with locale that does not support UTF-8, e.g. LANG=C (PR #365)
+    - tests: 
+        - test files can now be encrypted, to avoid antivirus alerts (PR #217, issue #215)
+        - tests that trigger antivirus alerts have been temporarily disabled (issue #215)
+- **2019-05-22 v0.54.2**:
+    - bugfix release: fixed several issues related to encrypted documents
+      and XLM/XLF Excel 4 macros
+    - msoffcrypto-tool is now installed by default to handle encrypted documents
+    - olevba and msodde now handle documents encrypted with common passwords such
+      as 123, 1234, 4321, 12345, 123456, VelvetSweatShop automatically.
 - **2019-04-04 v0.54**:
     - olevba, msodde: added support for encrypted MS Office files 
     - olevba: added detection and extraction of XLM/XLF Excel 4 macros (thanks to plugin_biff from Didier Stevens' oledump)
@@ -49,12 +68,6 @@ News
     - common.clsid contains the list of known CLSIDs, and their links to CVE vulnerabilities when relevant.
     - oleid now detects encrypted OpenXML files
     - fixed bugs in oleobj, rtfobj, oleid, olevba
-- 2018-02-18 v0.52:
-    - New tool [msodde](https://github.com/decalage2/oletools/wiki/msodde) to detect and extract DDE links from MS Office files, RTF and CSV;
-    - Fixed bugs in olevba, rtfobj and olefile, to better handle malformed/obfuscated files;
-    - Performance improvements in olevba and rtfobj;
-    - VBA form parsing in olevba;
-    - Office 2007+ support in oleobj.
 
 See the [full changelog](https://github.com/decalage2/oletools/wiki/Changelog) for more information.
 
@@ -88,29 +101,40 @@ Projects using oletools:
 
 oletools are used by a number of projects and online malware analysis services,
 including
-[Viper](http://viper.li/),
-[REMnux](https://remnux.org/),
-[FLARE-VM](https://github.com/fireeye/flare-vm),
-[FAME](https://certsocietegenerale.github.io/fame/),
-[Hybrid-analysis.com](https://www.hybrid-analysis.com/),
-[Joe Sandbox](https://www.document-analyzer.net/),
-[Deepviz](https://sandbox.deepviz.com/),
-[Laika BOSS](https://github.com/lmco/laikaboss),
-[Cuckoo Sandbox](https://github.com/cuckoosandbox/cuckoo),
+[ACE](https://github.com/IntegralDefense/ACE),
 [Anlyz.io](https://sandbox.anlyz.io/),
-[ViperMonkey](https://github.com/decalage2/ViperMonkey),
-[pcodedmp](https://github.com/bontchev/pcodedmp),
-[dridex.malwareconfig.com](https://dridex.malwareconfig.com),
-[Snake](https://github.com/countercept/snake),
-[DARKSURGEON](https://github.com/cryps1s/DARKSURGEON),
-[CAPE](https://github.com/ctxis/CAPE),
 [AssemblyLine](https://www.cse-cst.gc.ca/en/assemblyline),
+[CAPE](https://github.com/ctxis/CAPE),
+[CinCan](https://cincan.io),
+[Cuckoo Sandbox](https://github.com/cuckoosandbox/cuckoo),
+[DARKSURGEON](https://github.com/cryps1s/DARKSURGEON),
+[Deepviz](https://sandbox.deepviz.com/),
+[dridex.malwareconfig.com](https://dridex.malwareconfig.com),
+[FAME](https://certsocietegenerale.github.io/fame/),
+[FLARE-VM](https://github.com/fireeye/flare-vm),
+[Hybrid-analysis.com](https://www.hybrid-analysis.com/),
+[IntelOwl](https://github.com/certego/IntelOwl),
+[Joe Sandbox](https://www.document-analyzer.net/),
+[Laika BOSS](https://github.com/lmco/laikaboss),
+[MacroMilter](https://github.com/sbidy/MacroMilter),
+[mailcow](https://mailcow.email/),
 [malshare.io](https://malshare.io),
-[Malware Repository Framework (MRF)](https://www.adlice.com/download/mrf/),
 [malware-repo](https://github.com/Tigzy/malware-repo),
-[Vba2Graph](https://github.com/MalwareCantFly/Vba2Graph),
+[Malware Repository Framework (MRF)](https://www.adlice.com/download/mrf/),
+[olefy](https://github.com/HeinleinSupport/olefy),
+[PeekabooAV](https://github.com/scVENUS/PeekabooAV),
+[pcodedmp](https://github.com/bontchev/pcodedmp),
+[PyCIRCLean](https://github.com/CIRCL/PyCIRCLean),
+[REMnux](https://remnux.org/),
+[Snake](https://github.com/countercept/snake),
+[SNDBOX](https://app.sndbox.com),
 [Strelka](https://github.com/target/strelka),
 [stoQ](https://stoq.punchcyber.com/),
+[TheHive/Cortex](https://github.com/TheHive-Project/Cortex-Analyzers),
+[TSUGURI Linux](https://tsurugi-linux.org/),
+[Vba2Graph](https://github.com/MalwareCantFly/Vba2Graph),
+[Viper](http://viper.li/),
+[ViperMonkey](https://github.com/decalage2/ViperMonkey),
 [YOMI](https://yomi.yoroi.company),
 and probably [VirusTotal](https://www.virustotal.com). 
 And quite a few [other projects on GitHub](https://github.com/search?q=oletools&type=Repositories).

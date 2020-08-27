@@ -88,8 +88,12 @@ http://www.decalage.info/python/oletools
 # 2018-05-31 v0.53.1 PP: - fixed issue #316: whitespace after \bin on Python 3
 # 2018-06-22 v0.53.2 PL: - fixed issue #327: added "\pnaiu" & "\pnaiud"
 # 2018-09-11 v0.54 PL: - olefile is now a dependency
+# 2019-07-08 v0.55 MM: - added URL carver for CVE-2017-0199 (Equation Editor) PR #460
+#                      - added SCT to the list of executable file extensions PR #461
+# 2019-12-16 v0.55.2 PL: - \rtf is not a destination control word (issue #522)
+# 2019-12-17         PL: - fixed process_file to detect Equation class (issue #525)
 
-__version__ = '0.54'
+__version__ = '0.55.2'
 
 # ------------------------------------------------------------------------------
 # TODO:
@@ -268,7 +272,7 @@ re_delim_hexblock = re.compile(DELIMITER + PATTERN)
 
 # TODO: use a frozenset instead of a regex?
 re_executable_extensions = re.compile(
-    r"(?i)\.(EXE|COM|PIF|GADGET|MSI|MSP|MSC|VBS|VBE|VB|JSE|JS|WSF|WSC|WSH|WS|BAT|CMD|DLL|SCR|HTA|CPL|CLASS|JAR|PS1XML|PS1|PS2XML|PS2|PSC1|PSC2|SCF|LNK|INF|REG)\b")
+    r"(?i)\.(BAT|CLASS|CMD|CPL|DLL|EXECOM|GADGET|HTA|INF|JAR|JS|JSE|LNK|MSC|MSI|MSP|PIF|PS1|PS1XML|PS2|PS2XML|PSC1|PSC2|REG|SCF|SCR|SCT|VB|VBE|VBS|WS|WSC|WSF|WSH)\b")
 
 # Destination Control Words, according to MS RTF Specifications v1.9.1:
 DESTINATION_CONTROL_WORDS = frozenset((
@@ -299,7 +303,10 @@ DESTINATION_CONTROL_WORDS = frozenset((
     b"oleclsid", b"operator", b"panose", b"password", b"passwordhash", b"pgp", b"pgptbl", b"picprop", b"pict", b"pn", b"pnseclvl",
     b"pntext", b"pntxta", b"pntxtb", b"printim",
     b"propname", b"protend", b"protstart", b"protusertbl",
-    b"result", b"revtbl", b"revtim", b"rtf", b"rxe", b"shp", b"shpgrp", b"shpinst", b"shppict", b"shprslt", b"shptxt",
+    b"result", b"revtbl", b"revtim",
+    # \rtf should not be treated as a destination (issue #522)
+    #b"rtf",
+    b"rxe", b"shp", b"shpgrp", b"shpinst", b"shppict", b"shprslt", b"shptxt",
     b"sn", b"sp", b"staticval", b"stylesheet", b"subject", b"sv", b"svb", b"tc", b"template", b"themedata", b"title", b"txe", b"ud",
     b"upr", b"userprops", b"wgrffmtfilter", b"windowcaption", b"writereservation", b"writereservhash", b"xe", b"xform",
     b"xmlattrname", b"xmlattrvalue", b"xmlclose", b"xmlname", b"xmlnstbl", b"xmlopen",
@@ -548,7 +555,7 @@ class RtfParser(object):
         # TODO: according to RTF specs v1.9.1, "Destination changes are legal only immediately after an opening brace ({)"
         # (not counting the special control symbol \*, of course)
         if cword in DESTINATION_CONTROL_WORDS:
-            # log.debug('%r is a destination control word: starting a new destination' % cword)
+            log.debug('%r is a destination control word: starting a new destination at index %Xh' % (cword, self.index))
             self._open_destination(matchobject, cword)
         # call the corresponding user method for additional processing:
         self.control_word(matchobject, cword, param)
@@ -907,10 +914,26 @@ def process_file(container, filename, data, output_dir=None, save_object=False):
             # http://www.kb.cert.org/vuls/id/921560
             if rtfobj.class_name == b'OLE2Link':
                 ole_color = 'red'
-                ole_column += '\nPossibly an exploit for the OLE2Link vulnerability (VU#921560, CVE-2017-0199)'
+                ole_column += '\nPossibly an exploit for the OLE2Link vulnerability (VU#921560, CVE-2017-0199)\n'
+                # https://bitbucket.org/snippets/Alexander_Hanel/7Adpp
+                found_list =  re.findall(r'[a-fA-F0-9\x0D\x0A]{128,}',data)
+                urls = []
+                for item in found_list:
+                    try:
+                        temp = item.replace("\x0D\x0A","").decode("hex")
+                    except:
+                        continue
+                    pat = re.compile(r'(?:[\x20-\x7E][\x00]){3,}')
+                    words = [w.decode('utf-16le') for w in pat.findall(temp)]
+                    for w in words:
+                        if "http" in w:
+                            urls.append(w)
+                urls = sorted(set(urls))
+                if urls:
+                    ole_column += 'URL extracted: ' + ', '.join(urls)
             # Detect Equation Editor exploit
             # https://www.kb.cert.org/vuls/id/421280/
-            elif rtfobj.class_name.lower() == b'equation.3':
+            elif rtfobj.class_name.lower().startswith(b'equation.3'):
                 ole_color = 'red'
                 ole_column += '\nPossibly an exploit for the Equation Editor vulnerability (VU#421280, CVE-2017-11882)'
         else:
